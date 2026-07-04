@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LufSwitch — Mix comparison, made honest.</title>
+  <title>LufSwitch — Mix comparison, made honest. / LUFS fixed</title>
   <style>
     :root {
       --bg: #0d0f12;
@@ -594,7 +594,7 @@
           const d = buffer.getChannelData(c);
           for (let i = start; i < start + block; i++) sum += d[i] * d[i];
         }
-        const energy = sum / (block * channels);
+        const energy = sum / block;
         const lufs = -0.691 + 10 * Math.log10(Math.max(energy, 1e-14));
         if (lufs > -70) energies.push(energy);
       }
@@ -607,12 +607,23 @@
     }
 
     function estimateSimpleLufs(buffer) {
-      let sum = 0, count = 0;
-      for (let c = 0; c < Math.min(2, buffer.numberOfChannels); c++) {
-        const d = buffer.getChannelData(c), stride = Math.max(1, Math.floor(d.length / 1000000));
-        for (let i = 0; i < d.length; i += stride) { sum += d[i] * d[i]; count++; }
+      let sum = 0, sampleFrames = 0;
+      const channels = Math.min(2, buffer.numberOfChannels);
+      const stride = Math.max(1, Math.floor(buffer.length / 1000000));
+
+      for (let i = 0; i < buffer.length; i += stride) {
+        let frameEnergy = 0;
+
+        for (let c = 0; c < channels; c++) {
+          const d = buffer.getChannelData(c);
+          frameEnergy += (d[i] || 0) * (d[i] || 0);
+        }
+
+        sum += frameEnergy;
+        sampleFrames++;
       }
-      return -0.691 + 10 * Math.log10(Math.max(sum / Math.max(1, count), 1e-14));
+
+      return -0.691 + 10 * Math.log10(Math.max(sum / Math.max(1, sampleFrames), 1e-14));
     }
 
     function previewGainDb(track) {
